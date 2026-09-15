@@ -1,0 +1,40 @@
+\babel@toc {english}{}\relax 
+\contentsline {section}{\numberline {1}Introduction}{4}{section.1}%
+\contentsline {section}{\numberline {2}Context}{6}{section.2}%
+\contentsline {subsection}{\numberline {2.1}An introduction to possibility theory and epistemic uncertainty}{6}{subsection.2.1}%
+\contentsline {subsubsection}{\numberline {2.1.1}Historical context and definitions}{6}{subsubsection.2.1.1}%
+\contentsline {subsubsection}{\numberline {2.1.2}Decoupling aleatoric and epistemic uncertainty: J. Houssineau's research}{7}{subsubsection.2.1.2}%
+\contentsline {subsubsection}{\numberline {2.1.3}Why probability theory is not enough}{8}{subsubsection.2.1.3}%
+\contentsline {subsection}{\numberline {2.2}The Atlantic meridional overturning circulation}{9}{subsection.2.2}%
+\contentsline {subsubsection}{\numberline {2.2.1}Definitions and data}{9}{subsubsection.2.2.1}%
+\contentsline {subsubsection}{\numberline {2.2.2}Tipping estimation by Ditlevsen \& Ditlevsen (2023) \cite {ditlevsen2023}}{10}{subsubsection.2.2.2}%
+\contentsline {section}{\numberline {3}Contributions on AMOC collapse with Possibility Theory}{13}{section.3}%
+\contentsline {subsection}{\numberline {3.1}Identifying the methodological gaps of the article}{13}{subsection.3.1}%
+\contentsline {subsubsection}{\numberline {3.1.1}Two-step estimation procedure with plug-in}{13}{subsubsection.3.1.1}%
+\contentsline {subsubsection}{\numberline {3.1.2}The missing noise-induced tippings}{14}{subsubsection.3.1.2}%
+\contentsline {paragraph}{The results, and the formula that is never used.}{14}{paragraph*.5}%
+\contentsline {subsection}{\numberline {3.2}Relations between the variables: uncertainty modeling}{15}{subsection.3.2}%
+\contentsline {subsection}{\numberline {3.3}Constructing the posterior}{16}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}Including noise-induced tipping}{17}{subsection.3.4}%
+\contentsline {subsubsection}{\numberline {3.4.1}The right quantity to estimate}{17}{subsubsection.3.4.1}%
+\contentsline {subsubsection}{\numberline {3.4.2}A non-homogeneous escape rate}{19}{subsubsection.3.4.2}%
+\contentsline {subsubsection}{\numberline {3.4.3}Two failures of the quasi-static approximation}{20}{subsubsection.3.4.3}%
+\contentsline {subsection}{\numberline {3.5}First results: cumulative possibility and necessity}{21}{subsection.3.5}%
+\contentsline {subsection}{\numberline {3.6}Taking a step back: is tipping the right object?}{23}{subsection.3.6}%
+\contentsline {section}{\numberline {4}Perspectives}{25}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Continuation of the AMOC collapse estimation}{25}{subsection.4.1}%
+\contentsline {subsubsection}{\numberline {4.1.1}Fokker--Planck equation}{25}{subsubsection.4.1.1}%
+\contentsline {paragraph}{Landau transform:}{26}{paragraph*.17}%
+\contentsline {subsubsection}{\numberline {4.1.2}Uncertainty on likelihoods}{27}{subsubsection.4.1.2}%
+\contentsline {paragraph}{Mis-specified M-estimation with possibility theory:}{29}{paragraph*.18}%
+\contentsline {paragraph}{Quantifying the deviation from the true and the linearized distributions:}{29}{paragraph*.19}%
+\contentsline {paragraph}{From a bound on $D_{KL}$ to a bound on parameters:}{31}{paragraph*.20}%
+\contentsline {paragraph}{Quantifying the deviation from the true distribution and Strang splitting scheme:}{31}{paragraph*.21}%
+\contentsline {subsection}{\numberline {4.2}Peer review work}{32}{subsection.4.2}%
+\contentsline {subsubsection}{\numberline {4.2.1}Peer review work and AAAI requirements}{32}{subsubsection.4.2.1}%
+\contentsline {subsubsection}{\numberline {4.2.2}Brief introduction to the article}{33}{subsubsection.4.2.2}%
+\contentsline {section}{\numberline {5}Conclusion}{34}{section.5}%
+\contentsline {section}{References}{35}{section.5}%
+\contentsline {section}{Annex}{38}{section.5}%
+\contentsline {section}{\numberline {A}Ornstein--Uhlenbeck process: likelihood and estimators}{38}{appendix.A}%
+\contentsline {section}{\numberline {B}Strang splitting scheme}{38}{appendix.B}%
