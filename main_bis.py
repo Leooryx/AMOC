@@ -33,7 +33,7 @@ max_loglik_global, best_params, other_params = MLE(function, params)
 
 profiles = marg(function, params, max_loglik_global, best_params)
 
-#plot_profiles(profiles, best_params, f"{function.__name__}_marg.png")
+plot_profiles(profiles, best_params, f"{function.__name__}_marg.png")
 #computed_intervals = credibility_intervals(profiles=profiles, intervals=intervals, func_name=function.__name__, threshold=0.25, filename="estimation_metrics.txt")
 
 best_params.update(other_params)

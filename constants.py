@@ -43,7 +43,7 @@ bounds = {
     'a':     (0.1, 2.0),
 }
 
-grid_points = 100
+grid_points = 40
 
 intervals = {
     'alpha': np.linspace(*bounds['alpha'], grid_points),

@@ -99,7 +99,7 @@ def lambda_t_formula(t, lambda0, tau):
 
 def MLE(function, params):    
     
-    res = minimize(function, init_params, method='L-BFGS-B', bounds=b(params))
+    res = minimize(function, init_params, method='Nelder-Mead', bounds=b(params))
 
     max_loglik = -res.fun
     best_params = dict(zip(params, res.x))
@@ -122,7 +122,7 @@ def MLE(function, params):
 
 def marg(function, params, max_loglik, best_params):
     """Returns a possibility function for each parameter"""
-    # TODO: compute marginals for ALL PARAMS !!!
+    
     
     profiles = {}
 
@@ -143,7 +143,7 @@ def marg(function, params, max_loglik, best_params):
                 full_pars.insert(target_idx, val)  # Re-insert fixed value at original index
                 return function(full_pars)
 
-            res = minimize(obj, other_inits, method='L-BFGS-B', bounds=other_bounds)
+            res = minimize(obj, other_inits, method='Nelder-Mead', bounds=other_bounds)
 
             profiles[target_param][i] = np.exp(-res.fun - max_loglik)
 
