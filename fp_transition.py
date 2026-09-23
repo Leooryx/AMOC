@@ -56,6 +56,7 @@ from typing import Callable, Optional
 
 import numpy as np
 from scipy.linalg import solve_banded
+from constants import *
 
 
 # --------------------------------------------------------------------------
@@ -107,6 +108,7 @@ def x_escape(p: Params, c: float = 5.0) -> float:
         return float(p.x_esc)
     ell_widest = p.m - np.sqrt(max(-p.lambda0, 0.0) / p.A)
     return float(ell_widest - c * (p.sigma ** 2 / p.A) ** (1.0 / 3.0))
+# TODO: changer la définition de ell_widest. 
 
 
 # --------------------------------------------------------------------------
@@ -277,9 +279,9 @@ class TransitionSolution:
         val = (1 - w) * self.pdf_grid[rows, i] + w * self.pdf_grid[rows, i + 1]
         return np.where(inside, np.maximum(val, 0.0), 0.0)
 
-    def loglik(self, x_next: np.ndarray, floor: float = 1e-300) -> float:
-        """sum_k log p_theta(x_k | x_{k-1}): the true-model log-likelihood."""
-        return float(np.sum(np.log(np.maximum(self.pdf(x_next), floor))))
+    """def loglik(self, x_next: np.ndarray, floor: float = 1e-300) -> float:
+        #sum_k log p_theta(x_k | x_{k-1}): the true-model log-likelihood.
+        return float(np.sum(np.log(np.maximum(self.pdf(x_next), floor))))"""
 
     def bhattacharyya(self, q_pdf: Callable[[np.ndarray], np.ndarray],
                       q_escaped: Optional[np.ndarray] = None) -> np.ndarray:
@@ -439,3 +441,4 @@ def lna_gaussian_pdf(p: Params, x_prev, t_prev, t_next, n_sub: int = 200):
         return np.exp(-0.5 * (x - xT[:, None]) ** 2 / s2) / np.sqrt(2 * np.pi * s2)
     return q
 
+#print(lna_gaussian_pdf(p: Params, x_prev, t_prev, t_next, n_sub: int = 200))

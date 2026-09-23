@@ -1,6 +1,9 @@
 import numpy as np
 from fp_transition import transition_densities_theta, lna_gaussian_pdf, theta_to_fp_params
+from constants import *
 
+"""
+# Example 
 theta = (1.4, 1.7, 0.09, 20.0, 1.0)   # (alpha, mu, sigma2, tau, a)
 t0 = 5.0
 
@@ -19,14 +22,13 @@ D_B = sol.bhattacharyya(q)   # Bhattacharyya distance per transition
 f = np.exp(-D_B.sum())       # your f(theta | theta_tilde)
 
 print(p)
-
 print(q)
-
 print(D_B)
-
 print(f)
 
+"""
 
+# Real code
 
 
 """
@@ -78,26 +80,7 @@ from plot_functions import *
 from fp_transition import theta_to_fp_params, transition_densities
 
 
-# ============================================================================
-# 0) Observed data: plug in your actual arrays here.
-#    x_obs[k] observed at t_obs[k], k = 0..n  (same series `joint` is fit on).
-# ============================================================================
 
-X_OBS = full_data   
-T_OBS = full_time_seq    
-
-assert X_OBS is not None and T_OBS is not None, (
-    "Set X_OBS / T_OBS to the observed trajectory (values, times) that `joint` "
-    "is already fit on, at the top of marginals_flattened.py."
-)
-
-T_SWITCH = 1924.0   # density switches from linearized (q) to Strang (s) here
-
-# transition budget for D_B (kept small on purpose, see module docstring)
-N_STAT, N_NONSTAT = 10, 25
-
-# FP-solver resolution for the true-model transitions entering D_B
-FP_N, FP_STEPS = 100, 50
 
 
 # ============================================================================
@@ -201,30 +184,9 @@ def make_approx_pdf(theta, x_prev, t_prev, t_next):
     return pdf
 
 
-# ============================================================================
-# 5) small, fixed budget of transitions used for D_B
-# ============================================================================
-
-def _pick(idx, k):
-    if len(idx) <= k:
-        return idx
-    pos = np.unique(np.round(np.linspace(0, len(idx) - 1, k)).astype(int))
-    return idx[pos]
-
-
-def select_transitions(t_obs, n_stat=N_STAT, n_nonstat=N_NONSTAT):
-    t_prev_all = np.asarray(t_obs[:-1], dtype=float)
-    stat_idx = np.where(t_prev_all < t0)[0]
-    nonstat_idx = np.where(t_prev_all >= t0)[0]
-    return np.sort(np.concatenate([_pick(stat_idx, n_stat), _pick(nonstat_idx, n_nonstat)]))
-
-
-_IDX = select_transitions(T_OBS)
-_X_PREV, _T_PREV, _T_NEXT = X_OBS[_IDX], T_OBS[_IDX], T_OBS[_IDX + 1]
-
 
 # ============================================================================
-# 6) flattened log-likelihood:  sup_tilde_theta [ -D_B_sum(theta,tilde) + (-joint(tilde)) ]
+# 5) flattened log-likelihood:  sup_tilde_theta [ -D_B_sum(theta,tilde) + (-joint(tilde)) ]
 # ============================================================================
 
 def flattened_loglik(theta, params):
@@ -234,7 +196,7 @@ def flattened_loglik(theta, params):
     def inner_objective(tilde_theta):
         q_pdf = make_approx_pdf(tilde_theta, _X_PREV, _T_PREV, _T_NEXT)
         D_B_sum = sol.bhattacharyya(q_pdf).sum()
-        return D_B_sum + joint(list(tilde_theta))   # minimize D_B_sum - (-joint(tilde))
+        return (denom_norm + 1)*(D_B_sum + joint(list(tilde_theta)))   # minimize D_B_sum - (-joint(tilde))
 
     res = minimize(inner_objective, x0=list(theta), method="Nelder-Mead",
                     bounds=b(params), options={"xatol": 1e-3, "fatol": 1e-3})

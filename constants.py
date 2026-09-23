@@ -56,3 +56,49 @@ intervals = {
 # mid point of the bounds
 init_params = [3.25, 0.25, 0.3, 110.0, 2]
 
+
+
+
+
+# for transition solver
+
+# ============================================================================
+# 0) Observed data: plug in your actual arrays here.
+#    x_obs[k] observed at t_obs[k], k = 0..n  (same series `joint` is fit on).
+# ============================================================================
+
+X_OBS = full_data   
+T_OBS = full_time_seq    
+
+assert X_OBS is not None and T_OBS is not None, (
+    "Set X_OBS / T_OBS to the observed trajectory (values, times) that `joint` "
+    "is already fit on, at the top of marginals_flattened.py."
+)
+
+T_SWITCH = 1924.0   # density switches from linearized (q) to Strang (s) here
+
+N_STAT, N_NONSTAT = 10, 25
+denom_norm = 1.0 / (N_STAT + N_NONSTAT)   # for normalizing the D_B sum to a per-transition average
+
+# FP-solver resolution for the true-model transitions entering D_B
+FP_N, FP_STEPS = 100, 50 #TODO: i have divided by 2 the resolution for faster speed but should improve for better accuracy
+
+
+def _pick(idx, k):
+    if len(idx) <= k:
+        return idx
+    pos = np.unique(np.round(np.linspace(0, len(idx) - 1, k)).astype(int))
+    return idx[pos]
+
+
+# TODO: maybe can precompute this. 
+def select_transitions(t_obs, n_stat=N_STAT, n_nonstat=N_NONSTAT):
+    t_prev_all = np.asarray(t_obs[:-1], dtype=float)
+    stat_idx = np.where(t_prev_all < t0)[0]
+    nonstat_idx = np.where(t_prev_all >= t0)[0]
+    return np.sort(np.concatenate([_pick(stat_idx, n_stat), _pick(nonstat_idx, n_nonstat)]))
+
+
+_IDX = select_transitions(T_OBS)
+_X_PREV, _T_PREV, _T_NEXT = X_OBS[_IDX], T_OBS[_IDX], T_OBS[_IDX + 1]
+
