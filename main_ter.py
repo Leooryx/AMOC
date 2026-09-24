@@ -202,10 +202,10 @@ if __name__ == "__main__":
     function = joint_flattened
     max_loglik_global, best_params, other_params = MLE(function, params)
 
-    profiles = marg(function, params, max_loglik_global, best_params)
+    #profiles = marg(function, params, max_loglik_global, best_params)
 
-    plot_profiles(profiles, best_params, f"{function.__name__}_marg.png")
-    computed_intervals = credibility_intervals(profiles=profiles, intervals=intervals, func_name=function.__name__, threshold=0.25, filename="estimation_metrics.txt")
+    #plot_profiles(profiles, best_params, f"{function.__name__}_marg.png")
+    #computed_intervals = credibility_intervals(profiles=profiles, intervals=intervals, func_name=function.__name__, threshold=0.25, filename="estimation_metrics.txt")
 
     best_params.update(other_params)
 
@@ -225,10 +225,10 @@ if __name__ == "__main__":
     lambda0 = best_params["lambda0"] #need to concatenate dictionaries of estimated parameters!
     m = best_params["m"]
     t_c = best_params["t_c"]
-    print("t_c value = ", t_c)
+    #print("t_c value = ", t_c)
 
 
-    short_time = from_t0[(2000 <= from_t0) & (from_t0 <= t_c + 5)]
+    #short_time = from_t0[(2000 <= from_t0) & (from_t0 <= t_c + 5)]
 
 
     sim = False
@@ -256,7 +256,7 @@ if __name__ == "__main__":
 
 
 
-    # draw a line to show when the noise-induced tipping EK approx goes up again (sign that the approx is breaking down)
+    """# draw a line to show when the noise-induced tipping EK approx goes up again (sign that the approx is breaking down)
     short_time = np.array(from_t0[n//2:]) # for better visualization
     #short_time = short_time[short_time <= t_c]
     lamb_seq = [lambda_t_formula(t, lambda0, tau) for t in short_time]
@@ -277,7 +277,7 @@ if __name__ == "__main__":
     plt.grid(True, which="both", ls="--", alpha=0.5)
     plt.legend(fontsize=12)
     plt.savefig("images/mean_tau_noise_evolution.png")  # diagnostic, independent of joint vs joint_flattened -- left as-is
-    plt.close()
+    plt.close()"""
 
 
 
@@ -287,9 +287,6 @@ if __name__ == "__main__":
     potential_barrier = []
     #for i in range(len(short_time)):
         #potential_barrier.append(U(x_minus[i], lamb_seq[i], a, m) - U(x_plus[i], lamb_seq[i], a, m))
-
-
-
 
     test_time = [t for t in range(1, 160)]
     values = [best_params["alpha"], best_params["mu"], best_params["sigma2"], best_params["tau"], best_params["a"]]
@@ -316,8 +313,8 @@ if __name__ == "__main__":
     # Example & Possibility Curve Plotting
     # =============================================================================
 
-    T_max = t_c + 10
-    T_values = np.linspace(short_time[0], short_time[-1], num=50) #we just select 10 points
+    time_for_predict = np.arange(2000, 2040, 1 / 12)
+    T_values = np.linspace(time_for_predict[0], time_for_predict[-1], num=50) #we just select 50 points
     N_pts = len(T_values)
 
     poss_values = np.zeros_like(T_values)
@@ -467,7 +464,7 @@ if __name__ == "__main__":
     years = T_values #t0_year + T_values
 
 
-    evol = True
+    evol = False
     if evol:
         cmap_byr = LinearSegmentedColormap.from_list("BlueYellowRed", ["blue", "yellow", "red"])
 

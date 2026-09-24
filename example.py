@@ -239,7 +239,7 @@ def flattened_loglik(theta, params):
     def inner_objective(tilde_theta):
         q_pdf = make_approx_pdf(tilde_theta, X_PREV, T_PREV, T_NEXT)
         D_B_sum = sol.bhattacharyya(q_pdf).sum()
-        return (denom_norm + 1)*(D_B_sum + joint(list(tilde_theta)))   # minimize D_B_sum - (-joint(tilde))
+        return (D_B_sum + joint(list(tilde_theta))) / (N_STAT + N_NONSTAT +1)  
 
     res = minimize(inner_objective, x0=list(theta), method="Nelder-Mead",
                     bounds=b(params), options={"xatol": 1e-3, "fatol": 1e-3})
