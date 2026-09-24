@@ -29,6 +29,12 @@ from fp_tipping import proba_tip_before_fp
 from example import joint_flattened
 
 
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
+
+
 #np.random.seed(42)
 
 
@@ -196,10 +202,10 @@ if __name__ == "__main__":
     function = joint_flattened
     max_loglik_global, best_params, other_params = MLE(function, params)
 
-    #profiles = marg(function, params, max_loglik_global, best_params)
+    profiles = marg(function, params, max_loglik_global, best_params)
 
-    #plot_profiles(profiles, best_params, f"{function.__name__}_marg.png")
-    #computed_intervals = credibility_intervals(profiles=profiles, intervals=intervals, func_name=function.__name__, threshold=0.25, filename="estimation_metrics.txt")
+    plot_profiles(profiles, best_params, f"{function.__name__}_marg.png")
+    computed_intervals = credibility_intervals(profiles=profiles, intervals=intervals, func_name=function.__name__, threshold=0.25, filename="estimation_metrics.txt")
 
     best_params.update(other_params)
 
@@ -370,9 +376,38 @@ if __name__ == "__main__":
     pending = list(range(start_idx, N_pts))
 
     if pending:
-        max_workers = min(4, max(1, (os.cpu_count() or 2) - 1))  # a Surface isn't a workstation
+        # Detect cgroup quota (30 CPUs on Onyxia), fallback to affinity or CPU count
+        def get_allocated_cpus():
+            # cgroup v2 check
+            if os.path.exists("/sys/fs/cgroup/cpu.max"):
+                try:
+                    with open("/sys/fs/cgroup/cpu.max", "r") as f:
+                        val = f.read().split()
+                        if val[0] != "max":
+                            return int(int(val[0]) / int(val[1]))
+                except Exception:
+                    pass
+            # cgroup v1 check
+            if os.path.exists("/sys/fs/cgroup/cpu/cpu.cfs_quota_us"):
+                try:
+                    with open("/sys/fs/cgroup/cpu/cpu.cfs_quota_us") as f_q, \
+                         open("/sys/fs/cgroup/cpu/cpu.cfs_period_us") as f_p:
+                        quota = int(f_q.read().strip())
+                        period = int(f_p.read().strip())
+                        if quota > 0:
+                            return int(quota / period)
+                except Exception:
+                    pass
+            # Fallback
+            return len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else (os.cpu_count() or 4)
+
+        allocated_cpus = get_allocated_cpus()
+        # Leave 1-2 cores for system, OS overhead, and the main dispatch process
+        max_workers = max(1, allocated_cpus - 2)
+
+        print(f"Detected {allocated_cpus} allocated cgroup CPUs.")
         print(f"Computing {len(pending)} T points x 2 (possibility, necessity) "
-              f"on {max_workers} worker processes...")
+              f"on {max_workers} parallel worker processes...")
 
         results_poss, results_nec = {}, {}
         next_to_write = start_idx
@@ -432,7 +467,7 @@ if __name__ == "__main__":
     years = T_values #t0_year + T_values
 
 
-    evol = False
+    evol = True
     if evol:
         cmap_byr = LinearSegmentedColormap.from_list("BlueYellowRed", ["blue", "yellow", "red"])
 
