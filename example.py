@@ -3,7 +3,7 @@ from fp_transition import transition_densities_theta, lna_gaussian_pdf, theta_to
 from constants import *
 
 """
-# Example 
+# Example
 theta = (1.4, 1.7, 0.09, 20.0, 1.0)   # (alpha, mu, sigma2, tau, a)
 t0 = 5.0
 
@@ -67,10 +67,53 @@ non-stationary one) rather than every observed transition -- the true-model
 FP solve is run ONCE per outer theta (that's the expensive part); the inner
 sup over tilde_theta only re-evaluates the closed-form q/s density and
 `joint`, which are cheap.
+
+--------------------------------------------------------------------------
+SPEED (added, everything above/below is otherwise untouched):
+
+  1. Caching. `joint_flattened` is wrapped in an exact-match `lru_cache`.
+     L-BFGS-B (used inside both MLE and marg) frequently re-evaluates the
+     exact same point -- most often when a parameter sits at/near a bound
+     and several internal trial steps clip to the identical value, or
+     during Nelder-Mead's own vertex bookkeeping in flattened_loglik. Those
+     repeats are now free instead of re-running an FP solve. The cache key
+     is the RAW, unrounded theta -- no rounding is used on purpose: L-BFGS-B
+     estimates gradients with a finite-difference step of about 1e-8, so
+     rounding to anything coarser than that (e.g. 6 decimals) would make a
+     perturbed point collapse onto the base point and silently zero out the
+     gradient. Exact-match caching cannot do that; it only ever reuses a
+     result for a call that was already, bit-for-bit, made before.
+
+  2. Parallelization. `marg`'s grid loop evaluates `grid_points` values for
+     each of the 5 parameters, and every one of those (target_param, grid
+     value) profile points is an independent 4-D optimization -- nothing is
+     shared between them. `marg_parallel` below is the same loop, just
+     handed out to a process pool (`concurrent.futures.ProcessPoolExecutor`,
+     standard library, no new dependency) instead of run one point at a
+     time. Only the final `profiles = marg(...)` call is swapped for
+     `profiles = marg_parallel(...)`; `marg` itself (in utils.py) is not
+     touched, so this still works if you ever want to switch back.
+
+  3. `if __name__ == "__main__":` guard. This is required, not optional,
+     for (2) to work correctly -- on Windows (and therefore on the Surface)
+     `ProcessPoolExecutor` re-imports this file in every worker process. Without
+     the guard, each worker would re-run the whole MLE/marg/plot_profiles
+     driver at the bottom on import, spawning its own worker pool recursively.
+     With the guard, a worker only picks up the function/constant definitions
+     it needs and skips the driver, exactly as intended.
+
+  Both changes are additive: nothing about `flattened_loglik`, `q_density`,
+  `s_density`, `make_approx_pdf`, or the maths is touched.
+--------------------------------------------------------------------------
 """
+
+import os
+from functools import lru_cache
+from concurrent.futures import ProcessPoolExecutor
 
 import numpy as np
 from scipy.optimize import minimize
+from tqdm import tqdm
 
 from constants import *
 from likelihoods import *
@@ -191,10 +234,10 @@ def make_approx_pdf(theta, x_prev, t_prev, t_next):
 
 def flattened_loglik(theta, params):
     p = theta_to_fp_params(theta, t0)
-    sol = transition_densities(p, _X_PREV, _T_PREV, _T_NEXT, N=FP_N, n_steps=FP_STEPS)
+    sol = transition_densities(p, X_PREV, T_PREV, T_NEXT, N=FP_N, n_steps=FP_STEPS)
 
     def inner_objective(tilde_theta):
-        q_pdf = make_approx_pdf(tilde_theta, _X_PREV, _T_PREV, _T_NEXT)
+        q_pdf = make_approx_pdf(tilde_theta, X_PREV, T_PREV, T_NEXT)
         D_B_sum = sol.bhattacharyya(q_pdf).sum()
         return (denom_norm + 1)*(D_B_sum + joint(list(tilde_theta)))   # minimize D_B_sum - (-joint(tilde))
 
@@ -203,22 +246,90 @@ def flattened_loglik(theta, params):
     return -res.fun
 
 
+def _joint_flattened_uncached(theta):
+    return -flattened_loglik(theta, params)
+
+
+@lru_cache(maxsize=8192)
+def _joint_flattened_cached(theta_key):
+    # theta_key is a plain tuple of python floats -> hashable, picklable, and
+    # re-importable in a worker process (see marg_parallel below).
+    return _joint_flattened_uncached(theta_key)
+
+
 def joint_flattened(theta):
     """Drop-in replacement for `joint`: NEGATIVE flattened log-likelihood,
-    i.e. what MLE/marg expect to minimize."""
-    return -flattened_loglik(theta, params)
+    i.e. what MLE/marg expect to minimize.
+
+    Wrapped in an exact-match cache (see module docstring, point 1): the key
+    is the raw, unrounded theta, so this can only ever save a re-computation
+    for a call that is bit-for-bit identical to an earlier one -- it never
+    changes what gets computed, only how often.
+    """
+    theta_key = tuple(float(v) for v in theta)
+    return _joint_flattened_cached(theta_key)
+
+
+# ============================================================================
+# 6) parallel drop-in for `marg`'s grid loop (see module docstring, point 2)
+# ============================================================================
+
+def _profile_point(args):
+    """One (target_param, grid value) profile point -- independent of every
+    other one, so safe to run in its own worker process."""
+    function, target_idx, val, other_bounds, other_inits = args
+
+    def obj(pars_free):
+        full_pars = list(pars_free)
+        full_pars.insert(target_idx, val)
+        return function(full_pars)
+
+    res = minimize(obj, other_inits, method="Nelder-Mead", bounds=other_bounds)
+    return res.fun
+
+
+def marg_parallel(function, params, max_loglik, best_params, max_workers=None):
+    """Same computation, and same result, as `marg` (utils.py) -- only the
+    `grid_points` x `len(params)` independent profile evaluations are farmed
+    out to a process pool instead of run one after another. `marg` itself is
+    left untouched."""
+    if max_workers is None:
+        # leave a core free, and don't ask for more than a handful -- fine
+        # for a laptop-class machine (e.g. a Surface), where more workers
+        # than physical cores mostly just adds contention/heat.
+        max_workers = min(4, max(1, (os.cpu_count() or 2) - 1))
+
+    tasks, task_keys = [], []
+    for target_idx, target_param in enumerate(params):
+        other_params = [p for p in params if p != target_param]
+        other_bounds = [bounds[p] for p in other_params]
+        other_inits = [best_params[p] for p in other_params]
+        for i, val in enumerate(intervals[target_param]):
+            tasks.append((function, target_idx, val, other_bounds, other_inits))
+            task_keys.append((target_param, i))
+
+    profiles = {p: np.zeros(grid_points) for p in params}
+    with ProcessPoolExecutor(max_workers=max_workers) as ex:
+        results = tqdm(ex.map(_profile_point, tasks), total=len(tasks), desc="Profiles (parallel)")
+        for (target_param, i), res_fun in zip(task_keys, results):
+            profiles[target_param][i] = np.exp(-res_fun - max_loglik)
+
+    return profiles
 
 
 # ============================================================================
 # 7) same marginal-profile pipeline as before, just with `function` swapped
+#    and `marg` -> `marg_parallel`. Guarded by __main__: required for
+#    ProcessPoolExecutor to work correctly (see module docstring, point 3).
 # ============================================================================
 
-params = ["alpha", "mu", "sigma2", "tau", "a"]
+if __name__ == "__main__":
 
-function = joint_flattened
-max_loglik_global, best_params, other_params = MLE(function, params)
+    params = ["alpha", "mu", "sigma2", "tau", "a"]
 
-profiles = marg(function, params, max_loglik_global, best_params)
+    function = joint_flattened
+    max_loglik_global, best_params, other_params = MLE(function, params)
 
-plot_profiles(profiles, best_params, f"{function.__name__}_marg.png")
+    profiles = marg_parallel(function, params, max_loglik_global, best_params)
 
+    plot_profiles(profiles, best_params, f"{function.__name__}_marg.png")

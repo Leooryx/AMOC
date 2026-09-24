@@ -39,8 +39,8 @@ bounds = {
     'alpha': (1.0, 5.0),
     'mu':    (0.0, 1.0),
     'sigma2': (0.01, 1.0),
-    'tau':   (100.0, 220.0),
-    'a':     (0.1, 2.0),
+    'tau':   (100.0, 220.0), #(100.0, 220.0) previously
+    'a':     (0.1, 2.0), #(0.1, 2.0)
 }
 
 grid_points = 40
@@ -99,6 +99,6 @@ def select_transitions(t_obs, n_stat=N_STAT, n_nonstat=N_NONSTAT):
     return np.sort(np.concatenate([_pick(stat_idx, n_stat), _pick(nonstat_idx, n_nonstat)]))
 
 
-_IDX = select_transitions(T_OBS)
-_X_PREV, _T_PREV, _T_NEXT = X_OBS[_IDX], T_OBS[_IDX], T_OBS[_IDX + 1]
+IDX = select_transitions(T_OBS)
+X_PREV, T_PREV, T_NEXT = X_OBS[IDX], T_OBS[IDX], T_OBS[IDX + 1]
 
