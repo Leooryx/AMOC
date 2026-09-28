@@ -313,7 +313,7 @@ if __name__ == "__main__":
     # Example & Possibility Curve Plotting
     # =============================================================================
 
-    time_for_predict = np.arange(2000, 2040, 1 / 12)
+    time_for_predict = np.arange(2000, t_c + 20, 1 / 12)
     T_values = np.linspace(time_for_predict[0], time_for_predict[-1], num=50) #we just select 50 points
     N_pts = len(T_values)
 

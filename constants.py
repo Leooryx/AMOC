@@ -67,6 +67,8 @@ init_params = [3.25, 0.25, 0.3, 110.0, 2]
 #    x_obs[k] observed at t_obs[k], k = 0..n  (same series `joint` is fit on).
 # ============================================================================
 
+gamma = 3
+
 X_OBS = full_data   
 T_OBS = full_time_seq    
 
