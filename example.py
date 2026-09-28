@@ -239,10 +239,12 @@ def flattened_loglik(theta, params):
     def inner_objective(tilde_theta):
         q_pdf = make_approx_pdf(tilde_theta, X_PREV, T_PREV, T_NEXT)
         D_B_sum = sol.bhattacharyya(q_pdf).sum()
-        return (D_B_sum + joint(list(tilde_theta))) / (N_STAT + N_NONSTAT +1)  * gamma
+        #print(D_B_sum)
+        return gamma * (D_B_sum + joint(list(tilde_theta))) / (N_STAT + N_NONSTAT +1)  
 
     res = minimize(inner_objective, x0=list(theta), method="Nelder-Mead",
                     bounds=b(params), options={"xatol": 1e-3, "fatol": 1e-3})
+    
     return -res.fun
 
 
@@ -330,6 +332,9 @@ if __name__ == "__main__":
     function = joint_flattened
     max_loglik_global, best_params, other_params = MLE(function, params)
 
-    profiles = marg_parallel(function, params, max_loglik_global, best_params)
+    #profiles = marg_parallel(function, params, max_loglik_global, best_params)
 
-    plot_profiles(profiles, best_params, f"{function.__name__}_marg.png")
+    #plot_profiles(profiles, best_params, f"{function.__name__}_marg.png")
+
+    print(max_loglik_global)
+    print(best_params)
