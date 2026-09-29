@@ -272,8 +272,49 @@ def joint_flattened(theta):
     return _joint_flattened_cached(theta_key)
 
 
+
 # ============================================================================
-# 6) parallel drop-in for `marg`'s grid loop (see module docstring, point 2)
+# 6) joint_true: negative log-likelihood built ENTIRELY from the true model's
+# transition solver, over EVERY observed transition (X_OBS/T_OBS as given --
+# not the small IDX subsample used for D_B in joint_flattened). No flattening,
+# no sup over tilde_theta:
+#     joint_true(theta) = -sum_k log p_theta(x_k | x_{k-1})
+# MLE / marg / marg_parallel already turn -res.fun - max_loglik_global into
+# exp(...), which IS the possibility-style relative likelihood
+#     L(theta|x) = p(x|theta) / sup_psi p(x|psi)
+# from the tex note -- joint_true itself doesn't need to normalize anything.
+# ============================================================================
+
+X_PREV_FULL, T_PREV_FULL, T_NEXT_FULL = X_OBS[:-1], T_OBS[:-1], T_OBS[1:]
+
+
+def _true_loglik(theta):
+    p = theta_to_fp_params(theta, t0)
+    sol = transition_densities(p, X_PREV_FULL, T_PREV_FULL, T_NEXT_FULL, N=FP_N, n_steps=FP_STEPS)
+    dens = sol.pdf(X_OBS[1:])
+    return float(np.sum(np.log(np.maximum(dens, 1e-300))))
+
+
+def _joint_true_uncached(theta):
+    return -_true_loglik(theta)
+
+
+@lru_cache(maxsize=8192)
+def _joint_true_cached(theta_key):
+    return _joint_true_uncached(theta_key)
+
+
+def joint_true(theta):
+    """Drop-in replacement for `joint`/`joint_flattened`: negative log-
+    likelihood of the TRUE model alone, no approximate q/s, no flattening f,
+    using every observed transition. Same exact-match-cache rationale as
+    joint_flattened (see its docstring)."""
+    theta_key = tuple(float(v) for v in theta)
+    return _joint_true_cached(theta_key)
+
+
+# ============================================================================
+# 7) parallel drop-in for `marg`'s grid loop (see module docstring, point 2)
 # ============================================================================
 
 def _profile_point(args):
@@ -319,6 +360,8 @@ def marg_parallel(function, params, max_loglik, best_params, max_workers=None):
     return profiles
 
 
+
+
 # ============================================================================
 # 7) same marginal-profile pipeline as before, just with `function` swapped
 #    and `marg` -> `marg_parallel`. Guarded by __main__: required for
@@ -329,12 +372,34 @@ if __name__ == "__main__":
 
     params = ["alpha", "mu", "sigma2", "tau", "a"]
 
-    function = joint_flattened
-    max_loglik_global, best_params, other_params = MLE(function, params)
+    function = joint_true #joint_flattened
+    print("let's go")
+    
+    name = "joint_true"
+    import json
 
-    #profiles = marg_parallel(function, params, max_loglik_global, best_params)
+    MLE_FILE = f"{name}_mle.json"
 
-    #plot_profiles(profiles, best_params, f"{function.__name__}_marg.png")
+    if os.path.exists(MLE_FILE):
+        with open(MLE_FILE, "r") as f:
+            saved = json.load(f)
+        max_loglik_global = saved["max_loglik_global"]
+        best_params = saved["best_params"]
+        other_params = saved["other_params"]
+        print(f"Loaded MLE result from {MLE_FILE}")
+    else:
+        max_loglik_global, best_params, other_params = MLE(function, params)
+        with open(MLE_FILE, "w") as f:
+            json.dump({
+                "max_loglik_global": max_loglik_global,
+                "best_params": best_params,
+                "other_params": other_params,
+            }, f, indent=2)
+        print(f"Saved MLE result to {MLE_FILE}")
+
+    profiles = marg_parallel(function, params, max_loglik_global, best_params)
+
+    plot_profiles(profiles, best_params, f"{name}_marg.png")
 
     print(max_loglik_global)
     print(best_params)

@@ -69,10 +69,10 @@ init_params = [3.25, 0.25, 0.3, 110.0, 2]
 
 
 
-gamma = 4000 # scaling factor so that the Bhattcharrya distance is meaniningful. 
+gamma = 25632 # scaling factor so that the Bhattcharrya distance is meaniningful. 
 
-X_OBS = full_data   
-T_OBS = full_time_seq    
+X_OBS = full_data[::3]   
+T_OBS = full_time_seq[::3]    
 
 assert X_OBS is not None and T_OBS is not None, (
     "Set X_OBS / T_OBS to the observed trajectory (values, times) that `joint` "
@@ -83,10 +83,8 @@ T_SWITCH = 1924.0   # density switches from linearized (q) to Strang (s) here
 
 N_STAT, N_NONSTAT = 20, 50
 
-
+FP_N, FP_STEPS = 100, 50 #TODO: i have divided by 2 the resolution for faster speed but should improve for better accuracy
 # FP-solver resolution for the true-model transitions entering D_B
-FP_N, FP_STEPS = 200, 100 #TODO: i have divided by 2 the resolution for faster speed but should improve for better accuracy
-
 
 def _pick(idx, k):
     if len(idx) <= k:

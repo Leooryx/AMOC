@@ -360,7 +360,7 @@ def theta_to_fp_params(theta, t0: float) -> Params:
  
  
 def proba_tip_before_fp(theta, T: float, t0: float,
-                         N: int = FP_GRID_N, dt: float = FP_DT) -> float:
+                         N: int = FP_GRID_N, dt: float = FP_DT, necc: bool = False) -> float:
     """P(T_tip < T | theta), solved directly from the Fokker-Planck
     equation. Drop-in replacement for:
         r = hazard_rate(t_grid, theta)
@@ -373,6 +373,9 @@ def proba_tip_before_fp(theta, T: float, t0: float,
     alpha, mu, sigma2, tau, a = theta
  
     if T >= tau + t0:  # same shortcut as your original code: past t_c, certain
+        if necc: 
+            print("Estimated deterministic bifurcation time:", tau+t0)
+        #to understand when necessity peaks to 1
         return 1.0
     if T <= t0:
         return 0.0     # negligible pre-ramp noise-induced tipping (see below); T<=t0 not in from_t0 anyway

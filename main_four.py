@@ -26,16 +26,10 @@ from plot_functions import *
 from fp_tipping import proba_tip_before_fp
 
 # (1) flattened-posterior objective, used everywhere `joint` used to be.
-from example import *
+from example import joint_flattened
 
 
-os.environ["OMP_NUM_THREADS"] = "1"
-os.environ["MKL_NUM_THREADS"] = "1"
-os.environ["OPENBLAS_NUM_THREADS"] = "1"
-os.environ["NUMEXPR_NUM_THREADS"] = "1"
-
-
-#np.random.seed(42)
+np.random.seed(42)
 
 
 params = ["alpha", "mu", "sigma2", "tau", "a"]
@@ -129,7 +123,7 @@ def possibility_contrary_theta_5d(theta, T, max_loglik_global):
     posterior = _posterior(theta, max_loglik_global)
 
     # 2. Survival Probability (1 - CDF)
-    proba = proba_tip_before_fp(theta, T, t0, necc=True)
+    proba = proba_tip_before_fp(theta, T, t0)
 
     survival = 1 - proba
 
@@ -188,7 +182,7 @@ def _necessity_worker(args):
 # (3) generated files renamed to carry "flattened_posterior_tipping_quantif"
 # ============================================================================
 
-RUN_TAG = "flattened_posterior_tipping_quantif"
+RUN_TAG = "joint_true"
 SAVE_FILE = f"{RUN_TAG}.txt"
 
 
@@ -199,7 +193,7 @@ if __name__ == "__main__":
     # guard it would re-run this whole driver (and spawn its own pool) on
     # import instead of just picking up the function definitions above.
 
-    function = joint_true
+    function = joint_flattened
     max_loglik_global, best_params, other_params = MLE(function, params)
 
     #profiles = marg(function, params, max_loglik_global, best_params)
@@ -225,10 +219,10 @@ if __name__ == "__main__":
     lambda0 = best_params["lambda0"] #need to concatenate dictionaries of estimated parameters!
     m = best_params["m"]
     t_c = best_params["t_c"]
-    #print("t_c value = ", t_c)
+    print("t_c value = ", t_c)
 
 
-    #short_time = from_t0[(2000 <= from_t0) & (from_t0 <= t_c + 5)]
+    short_time = from_t0[(2000 <= from_t0) & (from_t0 <= t_c + 5)]
 
 
     sim = False
@@ -256,7 +250,7 @@ if __name__ == "__main__":
 
 
 
-    """# draw a line to show when the noise-induced tipping EK approx goes up again (sign that the approx is breaking down)
+    # draw a line to show when the noise-induced tipping EK approx goes up again (sign that the approx is breaking down)
     short_time = np.array(from_t0[n//2:]) # for better visualization
     #short_time = short_time[short_time <= t_c]
     lamb_seq = [lambda_t_formula(t, lambda0, tau) for t in short_time]
@@ -277,7 +271,7 @@ if __name__ == "__main__":
     plt.grid(True, which="both", ls="--", alpha=0.5)
     plt.legend(fontsize=12)
     plt.savefig("images/mean_tau_noise_evolution.png")  # diagnostic, independent of joint vs joint_flattened -- left as-is
-    plt.close()"""
+    plt.close()
 
 
 
@@ -287,6 +281,9 @@ if __name__ == "__main__":
     potential_barrier = []
     #for i in range(len(short_time)):
         #potential_barrier.append(U(x_minus[i], lamb_seq[i], a, m) - U(x_plus[i], lamb_seq[i], a, m))
+
+
+
 
     test_time = [t for t in range(1, 160)]
     values = [best_params["alpha"], best_params["mu"], best_params["sigma2"], best_params["tau"], best_params["a"]]
@@ -313,8 +310,8 @@ if __name__ == "__main__":
     # Example & Possibility Curve Plotting
     # =============================================================================
 
-    time_for_predict = np.arange(2000, t_c + 20, 1 / 12)
-    T_values = np.linspace(time_for_predict[0], time_for_predict[-1], num=50) #we just select 50 points
+    T_max = t_c + 10
+    T_values = np.linspace(short_time[0], short_time[-1], num=50) #we just select 10 points
     N_pts = len(T_values)
 
     poss_values = np.zeros_like(T_values)
@@ -373,38 +370,9 @@ if __name__ == "__main__":
     pending = list(range(start_idx, N_pts))
 
     if pending:
-        # Detect cgroup quota (30 CPUs on Onyxia), fallback to affinity or CPU count
-        def get_allocated_cpus():
-            # cgroup v2 check
-            if os.path.exists("/sys/fs/cgroup/cpu.max"):
-                try:
-                    with open("/sys/fs/cgroup/cpu.max", "r") as f:
-                        val = f.read().split()
-                        if val[0] != "max":
-                            return int(int(val[0]) / int(val[1]))
-                except Exception:
-                    pass
-            # cgroup v1 check
-            if os.path.exists("/sys/fs/cgroup/cpu/cpu.cfs_quota_us"):
-                try:
-                    with open("/sys/fs/cgroup/cpu/cpu.cfs_quota_us") as f_q, \
-                         open("/sys/fs/cgroup/cpu/cpu.cfs_period_us") as f_p:
-                        quota = int(f_q.read().strip())
-                        period = int(f_p.read().strip())
-                        if quota > 0:
-                            return int(quota / period)
-                except Exception:
-                    pass
-            # Fallback
-            return len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else (os.cpu_count() or 4)
-
-        allocated_cpus = get_allocated_cpus()
-        # Leave 1-2 cores for system, OS overhead, and the main dispatch process
-        max_workers = max(1, allocated_cpus - 2)
-
-        print(f"Detected {allocated_cpus} allocated cgroup CPUs.")
+        max_workers = min(4, max(1, (os.cpu_count() or 2) - 1))  # a Surface isn't a workstation
         print(f"Computing {len(pending)} T points x 2 (possibility, necessity) "
-              f"on {max_workers} parallel worker processes...")
+              f"on {max_workers} worker processes...")
 
         results_poss, results_nec = {}, {}
         next_to_write = start_idx
