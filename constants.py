@@ -83,7 +83,7 @@ T_SWITCH = 1924.0   # density switches from linearized (q) to Strang (s) here
 
 N_STAT, N_NONSTAT = 20, 50
 
-FP_N, FP_STEPS = 100, 50 #TODO: i have divided by 2 the resolution for faster speed but should improve for better accuracy
+FP_N, FP_STEPS = 200, 100 #TODO: i have divided by 2 the resolution for faster speed but should improve for better accuracy
 # FP-solver resolution for the true-model transitions entering D_B
 
 def _pick(idx, k):

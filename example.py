@@ -397,6 +397,9 @@ if __name__ == "__main__":
             }, f, indent=2)
         print(f"Saved MLE result to {MLE_FILE}")
 
+    print(best_params)
+    print(other_params)
+
     profiles = marg_parallel(function, params, max_loglik_global, best_params)
 
     plot_profiles(profiles, best_params, f"{name}_marg.png")

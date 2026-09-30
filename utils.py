@@ -99,7 +99,7 @@ def lambda_t_formula(t, lambda0, tau):
 
 def MLE(function, params):    
     
-    res = minimize(function, init_params, method='Nelder-Mead', bounds=b(params))
+    res = minimize(function, init_params, method='Nelder-Mead', bounds=b(params)) 
 
     max_loglik = -res.fun
     best_params = dict(zip(params, res.x))
@@ -122,19 +122,19 @@ def MLE(function, params):
 
 def marg(function, params, max_loglik, best_params):
     """Returns a possibility function for each parameter"""
-    
-    
-    profiles = {}
 
+    profiles = {}
 
     for target_idx, target_param in enumerate(params):
 
-        profiles[target_param] = np.zeros(grid_points)
+        base_grid = intervals[target_param]
+        best_val = best_params[target_param]
+        
+        grid = np.unique(np.append(base_grid, best_val))
+        profiles[target_param] = np.zeros(len(grid))
         other_params = [p for p in params if p != target_param]
         other_bounds = [bounds[p] for p in other_params]
         other_inits = [best_params[p] for p in other_params]
-
-        grid = intervals[target_param]
 
         for i, val in enumerate(tqdm(grid, desc=f"{target_param.capitalize()} profile")):
             

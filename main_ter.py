@@ -2,6 +2,8 @@ import os
 from functools import lru_cache
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
+import time
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -41,6 +43,9 @@ os.environ["NUMEXPR_NUM_THREADS"] = "1"
 params = ["alpha", "mu", "sigma2", "tau", "a"]
 
 
+# CHOOSE YOUR POSTERIOR
+POSTERIOR_FUNCTION = joint_true
+
 # ============================================================================
 # Everything below that is a plain FUNCTION DEFINITION stays at module level
 # (outside `if __name__ == "__main__":`), because the parallel workers below
@@ -72,7 +77,7 @@ params = ["alpha", "mu", "sigma2", "tau", "a"]
 
 @lru_cache(maxsize=20000)
 def _cached_posterior(theta_key, max_loglik_global):
-    return float(np.exp(-joint_flattened(theta_key) - max_loglik_global))
+    return float(np.exp(-POSTERIOR_FUNCTION(theta_key) - max_loglik_global))
 
 
 def _posterior(theta, max_loglik_global, round_dp=6):
@@ -89,7 +94,7 @@ def possibility_theta_5d(theta, T, max_loglik_global):
     Evaluates possibility dynamically calculating t_c(theta) = tau.
     theta = [alpha, mu, sigma, tau, a]
     """
-    alpha, mu, sigma, tau, a = theta
+    #alpha, mu, sigma, tau, a = theta
 
     posterior = _posterior(theta, max_loglik_global)
 
@@ -123,7 +128,7 @@ def possibility_tipping_before(T, values, max_loglik_global):
 
 def possibility_contrary_theta_5d(theta, T, max_loglik_global):
 
-    alpha, mu, sigma, tau, a = theta
+    #alpha, mu, sigma, tau, a = theta
 
     # 1. Epistemic uncertainty
     posterior = _posterior(theta, max_loglik_global)
@@ -199,8 +204,12 @@ if __name__ == "__main__":
     # guard it would re-run this whole driver (and spawn its own pool) on
     # import instead of just picking up the function definitions above.
 
-    function = joint_true
+    function = POSTERIOR_FUNCTION
+    print(time.strftime("%H:%M:%S", time.localtime()))
     max_loglik_global, best_params, other_params = MLE(function, params)
+    print(time.strftime("%H:%M:%S", time.localtime()))
+    print(best_params)
+    print(other_params)
 
     #profiles = marg(function, params, max_loglik_global, best_params)
 
@@ -225,7 +234,7 @@ if __name__ == "__main__":
     lambda0 = best_params["lambda0"] #need to concatenate dictionaries of estimated parameters!
     m = best_params["m"]
     t_c = best_params["t_c"]
-    #print("t_c value = ", t_c)
+    print("t_c value = ", t_c)
 
 
     #short_time = from_t0[(2000 <= from_t0) & (from_t0 <= t_c + 5)]
