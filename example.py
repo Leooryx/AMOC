@@ -232,7 +232,7 @@ def make_approx_pdf(theta, x_prev, t_prev, t_next):
 # 5) flattened log-likelihood:  sup_tilde_theta [ -D_B_sum(theta,tilde) + (-joint(tilde)) ]
 # ============================================================================
 
-def flattened_loglik(theta, params):
+def flattened_loglik(theta, params, gamma=gamma):
     p = theta_to_fp_params(theta, t0)
     sol = transition_densities(p, X_PREV, T_PREV, T_NEXT, N=FP_N, n_steps=FP_STEPS)
 
@@ -240,7 +240,8 @@ def flattened_loglik(theta, params):
         q_pdf = make_approx_pdf(tilde_theta, X_PREV, T_PREV, T_NEXT)
         D_B_sum = sol.bhattacharyya(q_pdf).sum()
         #print(D_B_sum)
-        return gamma * (D_B_sum + joint(list(tilde_theta))) / (N_STAT + N_NONSTAT +1)  
+        return gamma * D_B_sum / (N_STAT + N_NONSTAT +1)   + joint(list(tilde_theta))  #joint is the joint negloglik
+        # plus for joint bc want to minimize
 
     res = minimize(inner_objective, x0=list(theta), method="Nelder-Mead",
                     bounds=b(params), options={"xatol": 1e-3, "fatol": 1e-3})
