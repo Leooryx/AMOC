@@ -24,20 +24,19 @@ Two assumptions I had to make (flag if they are not what you meant):
 import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
-from tqdm import tqdm
+from scipy.stats import skew, wasserstein_distance
 
 from constants import *   # start_year, t0, delta_t, full_data, bounds, init_params, ...
 from utils import *       # S_onestep, X_traj, b(...)
 from example import flattened_loglik
 
 PARAMS = ["alpha", "mu", "sigma2", "tau", "a"]
-GAMMA_GRID = [0, 1000, 5000, 10000, 20000, 30000]
+GAMMA_GRID = [40000, 50000, 6000]
 
 
 T_END = 2020.0      # horizon simulated for the calibration check
 X0 = full_data[0]   # trajectories start from the first observed value, at start_year
-
-NUM_SAMPLES = 1000     # <- start small to check everything works, then raise to 1000
+NUM_SAMPLES = 5000     # <- start small to check everything works, then raise to 1000
 
 
 # ---------------------------------------------------------------------------
@@ -70,7 +69,10 @@ def mle_for_gamma(gamma_value):
 # 3) simulate one trajectory up to T_END and say whether it tipped before T_END
 # ---------------------------------------------------------------------------
 
-def simulate_until(theta, t_end=T_END):
+def simulate_until(theta, seed, t_end=T_END):
+    np.random.seed(seed)                   # <- common random numbers: same seed,
+                                            #    same noise path, for a given sample
+                                            #    index regardless of gamma/theta
     traj_params = theta_to_traj_params(theta)
     out = X_traj(traj_params, X0)          # unmodified; runs until tipping / t_c
     Xtraj = out["X"]
@@ -105,12 +107,21 @@ def cross_corr(x, y, lag):
     return np.corrcoef(x[lag:lag + n], y[:n])[0, 1]
 
 
-def sample_statistics(t, x):
+def sample_statistics(t, x, post1924_real_data):
     beta0, beta1 = regression_stats(t, x)
     n_overlap = min(len(x), len(full_data))
     acf1 = cross_corr(x[:n_overlap], full_data[:n_overlap], lag=1)
     acf12 = cross_corr(x[:n_overlap], full_data[:n_overlap], lag=12)
-    return beta0, beta1, acf1, acf12
+    
+    diff_var = np.var(np.diff(x))
+    skew_val = skew(x)
+    p05 = np.percentile(x, 5)
+
+    post1924_sim = x[t >= t0]
+    w_dist = wasserstein_distance(post1924_sim, post1924_real_data)
+
+
+    return beta0, beta1, acf1, acf12, diff_var, skew_val, p05, w_dist
 
 
 def mean_ci(values):
@@ -120,6 +131,35 @@ def mean_ci(values):
     return mean, lo, hi
 
 
+
+# ---------------------------------------------------------------------------
+# 5) the same statistics computed on the real series, for the coverage check
+#    (beta0/beta1/acf/post1924 don't depend on theta)
+# ---------------------------------------------------------------------------
+ 
+def real_data_statistics(t_end=T_END):
+    keep = full_time_seq <= t_end
+    t_real, x_real = full_time_seq[keep], full_data[keep]
+ 
+    beta0, beta1 = regression_stats(t_real, x_real)
+    acf1 = cross_corr(x_real, x_real, lag=1)
+    acf12 = cross_corr(x_real, x_real, lag=12)
+    post1924 = x_real[t_real >= t0]
+
+    diff_var = np.var(np.diff(x_real))
+    skewness = skew(x_real)
+    p05 = np.percentile(x_real, 5)
+ 
+    return {"beta0": beta0, "beta1": beta1,
+            "acf_lag1": acf1, "acf_lag12": acf12,
+            "post1924_mean": post1924.mean(), "post1924_std": post1924.std(),
+            "diff_var": diff_var,
+            "skewness": skewness,
+            "p05": p05,
+            "post1924_real": post1924}
+ 
+ 
+
 # ---------------------------------------------------------------------------
 # main loop
 # ---------------------------------------------------------------------------
@@ -127,51 +167,69 @@ def mean_ci(values):
 if __name__ == "__main__":
 
     rows = []
+    real_stats = real_data_statistics()
+    real_stats_print = {k: v for k, v in real_stats.items() if k != "post1924_real"}
+    print("stats on real data:", real_stats_print)
 
-    for gamma_value in tqdm(GAMMA_GRID):
+    for gamma_value in GAMMA_GRID:
         print(f"\n=== gamma = {gamma_value} ===")
 
         print("  fitting theta_hat(gamma)...")
         theta_hat = mle_for_gamma(gamma_value)
         print(f"  theta_hat = {dict(zip(PARAMS, np.round(theta_hat, 4)))}")
 
-        if gamma_value == 0:
-            print("  gamma=0 fully flattens the likelihood: theta_hat is not "
-                  "identified, this run is only a reference point.")
-
         beta0s, beta1s, acf1s, acf12s = [], [], [], []
+        post1924_means, post1924_stds = [], []
+        diff_vars, skewnesses, p05s, w_dists = [], [], [], []
         n_tipped = 0
 
         for i in range(NUM_SAMPLES):
-            t_traj, x_traj, tipped = simulate_until(theta_hat)
+            t_traj, x_traj, tipped = simulate_until(theta_hat, seed=i)
             if tipped:
                 n_tipped += 1
                 continue
-            beta0, beta1, acf1, acf12 = sample_statistics(t_traj, x_traj)
+            beta0, beta1, acf1, acf12, diff_var, skew_val, p05, w_dist = sample_statistics(
+                t_traj, x_traj, real_stats["post1924_real"]
+            )
+            
             beta0s.append(beta0)
             beta1s.append(beta1)
             acf1s.append(acf1)
             acf12s.append(acf12)
+            diff_vars.append(diff_var)
+            skewnesses.append(skew_val)
+            p05s.append(p05)
+            w_dists.append(w_dist)
 
-            step = max(1, NUM_SAMPLES // 10)
-            
-
-        #print(f"  kept {NUM_SAMPLES - n_tipped}/{NUM_SAMPLES} samples and (removed {n_tipped} that tipped before t={T_END})")
-
-        if NUM_SAMPLES - n_tipped == 0:
-            print("  every sample tipped before T_END, skipping statistics for this gamma.")
-            continue
+            post1924 = x_traj[t_traj >= t0]
+            post1924_means.append(post1924.mean())
+            post1924_stds.append(post1924.std())
 
         row = {"gamma": gamma_value, "n_tipped": n_tipped}
-        for name, values in [("beta0", beta0s), ("beta1", beta1s),
-                              ("acf_lag1", acf1s), ("acf_lag12", acf12s)]:
+        stats_to_report = [
+            ("beta0", beta0s, True), 
+            ("beta1", beta1s, True),
+            ("acf_lag1", acf1s, True), 
+            ("acf_lag12", acf12s, True),
+            ("post1924_mean", post1924_means, True),
+            ("post1924_std", post1924_stds, True),
+            ("diff_var", diff_vars, True),
+            ("skewness", skewnesses, True),
+            ("p05", p05s, True),
+            ("w_dist", w_dists, False) # Wasserstein is distance TO real data
+        ]
+        for name, values, has_real_target in stats_to_report:
             mean, lo, hi = mean_ci(values)
             row[f"{name}_mean"] = mean
             row[f"{name}_CI95"] = (round(lo, 4), round(hi, 4))
+            if has_real_target:
+                row[f"{name}_in_CI"] = bool(lo <= real_stats[name] <= hi)
+
         rows.append(row)
 
     table = pd.DataFrame(rows)
-    pd.set_option("display.width", 160)
+    pd.set_option("display.width", 250)
+    pd.set_option("display.max_columns", None)
     print("\n\n=== summary table ===")
     print(table.to_string(index=False))
 

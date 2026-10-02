@@ -44,7 +44,7 @@ params = ["alpha", "mu", "sigma2", "tau", "a"]
 
 
 # CHOOSE YOUR POSTERIOR
-POSTERIOR_FUNCTION = joint_true
+POSTERIOR_FUNCTION = joint_flattened #joint_true
 
 # ============================================================================
 # Everything below that is a plain FUNCTION DEFINITION stays at module level

@@ -69,7 +69,7 @@ init_params = [3.25, 0.25, 0.3, 110.0, 2]
 
 
 
-gamma = 25632 # scaling factor so that the Bhattcharrya distance is meaniningful. 
+gamma = 30000 # scaling factor so that the Bhattcharrya distance is meaniningful. 
 
 X_OBS = full_data[::3]   
 T_OBS = full_time_seq[::3]    

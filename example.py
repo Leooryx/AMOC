@@ -373,13 +373,15 @@ if __name__ == "__main__":
 
     params = ["alpha", "mu", "sigma2", "tau", "a"]
 
-    function = joint_true #joint_flattened
+    function = joint #joint_true #
+    MLE_FILE = f"{function.__name__}_mle.json"
+    name = f"{function.__name__}"
     print("let's go")
     
-    name = "joint_true"
+    
     import json
 
-    MLE_FILE = f"{name}_mle.json"
+    
 
     if os.path.exists(MLE_FILE):
         with open(MLE_FILE, "r") as f:
