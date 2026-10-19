@@ -124,6 +124,7 @@ def marg(function, params, max_loglik, best_params):
     """Returns a possibility function for each parameter"""
 
     profiles = {}
+    grids = {}
 
     for target_idx, target_param in enumerate(params):
 
@@ -131,7 +132,9 @@ def marg(function, params, max_loglik, best_params):
         best_val = best_params[target_param]
         
         grid = np.unique(np.append(base_grid, best_val))
+        grids[target_param] = grid
         profiles[target_param] = np.zeros(len(grid))
+
         other_params = [p for p in params if p != target_param]
         other_bounds = [bounds[p] for p in other_params]
         other_inits = [best_params[p] for p in other_params]
@@ -148,7 +151,7 @@ def marg(function, params, max_loglik, best_params):
             profiles[target_param][i] = np.exp(-res.fun - max_loglik)
 
 
-    return profiles
+    return profiles, grids
 
 
 

@@ -8,8 +8,11 @@ import os
 from scipy.interpolate import interp1d
 
 
-def plot_profiles(profiles, estimates, pic_name):
+def plot_profiles(profiles, estimates, pic_name, grids=None):
     
+    if grids is None:
+        grids = intervals
+
     keys = list(intervals.keys())
     n_params = len(keys)
 
@@ -23,13 +26,14 @@ def plot_profiles(profiles, estimates, pic_name):
     for idx, key in enumerate(keys):
         ax = axes[idx]
         param_label = labels[idx]
+        x_vals = grids[key]
 
-        ax.plot(intervals[key], profiles[key], color=colors[idx], linewidth=2.5, label=r'$\pi(\theta|X)$')
+        ax.plot(x_vals, profiles[key], color=colors[idx], linewidth=2.5, label=r'$\pi(\theta|X)$')
 
     
         if key in estimates:
             x = estimates[key]
-            ax.axvline(estimates[key], color='black', linestyle=':', label='MLE Global')
+            ax.axvline(x, color='black', linestyle=':', label='MLE Global')
             ax.text(x, 0.4, f"{estimates[key]:.3g}",rotation=90,ha='left',va='top',fontsize=9,color='black')
 
         ax.set_title(param_label, fontsize=14, fontweight='bold')
@@ -44,7 +48,7 @@ def plot_profiles(profiles, estimates, pic_name):
     plt.suptitle("Marginalized possibilities", fontsize=10, fontweight='bold')
     plt.tight_layout()
     #plt.show()
-    plt.savefig(f"images/{pic_name}")
+    plt.savefig(f"{pic_name}")
 
 
 def plot_credibility_intervals(all_intervals, all_best_params):
