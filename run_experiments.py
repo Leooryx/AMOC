@@ -150,6 +150,24 @@ def _necessity_worker(args):
     nec = necessity_tipping_before(T, values, max_loglik_global, exp_name)
     return i, "necessity", nec
 
+def _profile_point_worker(args):
+    """One point of a marginal possibility function (same computation as `marg`):
+    fix `target_param` = val and maximise over the 4 other parameters."""
+    exp_name, target_param, i, val, best_params, max_loglik_global = args
+    likelihood = EXPERIMENTS[exp_name]
+ 
+    target_idx = params.index(target_param)
+    other_params = [p for p in params if p != target_param]
+    other_bounds = [bounds[p] for p in other_params]
+    other_inits = [best_params[p] for p in other_params]
+ 
+    def obj(pars_free):
+        full_pars = list(pars_free)
+        full_pars.insert(target_idx, val)  # Re-insert fixed value at original index
+        return likelihood(full_pars)
+ 
+    res = minimize(obj, other_inits, method="Nelder-Mead", bounds=other_bounds)
+    return target_param, i, float(np.exp(-res.fun - max_loglik_global))
 
 # Detect cgroup quota (30 CPUs on Onyxia), fallback to affinity or CPU count
 def get_allocated_cpus():
@@ -232,36 +250,80 @@ def get_mle(exp_name, likelihood, path):
 # 2) Marginal possibility profiles
 # -----------------------------------------------------------------------------
 
-def _read_profiles(path):
-    """Return the profiles dict if the file is complete, None otherwise."""
-    if not os.path.exists(path):
-        return None, None
-    data = {p: ([], []) for p in params}
-    with open(path) as f:
-        for line in f:
-            if not line.strip() or line.startswith("#"):
-                continue
-            cols = line.split()
-            if len(cols) != 3 or cols[0] not in data:
-                return None, None
-            data[cols[0]][0].append(float(cols[1]))
-            data[cols[0]][1].append(float(cols[2]))
-    grids = {p: np.asarray(data[p][0]) for p in params}
-    profiles = {p: np.asarray(data[p][1]) for p in params}
-    return profiles, grids
-
-
-def get_profiles(exp_name, likelihood, max_loglik_global, best_params, path):
-    profiles, grids = _read_profiles(path)
-    if profiles is not None:
+PROFILES_HEADER = "# param\tvalue\tmarginal_possibility\n"
+ 
+ 
+def profile_grids(best_params):
+    """Same grids as in `marg`: intervals[p] plus the MLE value."""
+    return {p: np.unique(np.append(intervals[p], best_params[p])) for p in params}
+ 
+ 
+def load_profiles(path, grids, profiles, done):
+    """Fill `profiles` / `done` from the checkpoint file, then rewrite the file
+    with its valid lines only (drops a line truncated by a crash and points
+    that are not on the current grids)."""
+    valid = []
+    if os.path.exists(path):
+        with open(path) as f:
+            for line in f:
+                if not line.strip() or line.startswith("#") or not line.endswith("\n"):
+                    continue
+                cols = line.split()
+                if len(cols) != 3 or cols[0] not in grids:
+                    continue
+                try:
+                    x, y = float(cols[1]), float(cols[2])
+                except ValueError:
+                    continue
+                g = grids[cols[0]]
+                i = int(np.argmin(np.abs(g - x)))
+                if not np.isclose(g[i], x, rtol=1e-7, atol=1e-12):
+                    continue
+                profiles[cols[0]][i] = y
+                done[cols[0]][i] = True
+                valid.append(line)
+ 
+    with open(path, "w") as f:
+        f.write(PROFILES_HEADER)
+        f.writelines(valid)
+ 
+ 
+def get_profiles(exp_name, max_loglik_global, best_params, path):
+    grids = profile_grids(best_params)
+    profiles = {p: np.zeros(len(grids[p])) for p in params}
+    done = {p: np.zeros(len(grids[p]), dtype=bool) for p in params}
+ 
+    load_profiles(path, grids, profiles, done)
+ 
+    pending = [(p, i) for p in params for i in np.flatnonzero(~done[p])]
+    n_total = sum(len(grids[p]) for p in params)
+ 
+    if not pending:
         print(f"[{exp_name}] Marginal profiles loaded from {path}")
         return profiles, grids
-
-    print(f"[{exp_name}] Computing marginal profiles...")
-    profiles, grids = marg(likelihood, params, max_loglik_global, best_params)
-    profiles = {p: np.asarray(profiles[p], dtype=float) for p in params}
-
-    lines = ["# param\tvalue\tmarginal_possibility"]
+ 
+    print(f"[{exp_name}] Profiles checkpoint: {n_total - len(pending)}/{n_total} points already calculated.")
+ 
+    allocated_cpus = get_allocated_cpus()
+    max_workers = max(1, allocated_cpus - 2)
+    print(f"[{exp_name}] Computing {len(pending)} profile points "
+          f"on {max_workers} parallel worker processes...")
+ 
+    with ProcessPoolExecutor(max_workers=max_workers) as ex, open(path, "a") as f:
+        futures = [
+            ex.submit(_profile_point_worker,
+                      (exp_name, p, i, grids[p][i], best_params, max_loglik_global))
+            for p, i in pending
+        ]
+        for fut in tqdm(as_completed(futures), total=len(futures),
+                        desc=f"{exp_name}: marginal profiles (parallel)"):
+            p, i, value = fut.result()
+            profiles[p][i] = value
+            f.write(f"{p}\t{grids[p][i]:.8e}\t{value:.8e}\n")
+            f.flush()
+ 
+    # Final, ordered version of the file
+    lines = [PROFILES_HEADER.rstrip("\n")]
     for p in params:
         for x, y in zip(grids[p], profiles[p]):
             lines.append(f"{p}\t{float(x):.8e}\t{float(y):.8e}")
@@ -458,7 +520,7 @@ def run_experiment(exp_name):
     max_loglik_global, best_params, other_params = get_mle(exp_name, likelihood, paths["mle"])
 
     # 2) Marginal possibility profiles
-    profiles, grids = get_profiles(exp_name, likelihood, max_loglik_global, best_params, paths["profiles"])
+    profiles, grids = get_profiles(exp_name, max_loglik_global, best_params, paths["profiles"])    
     plot_profiles(profiles, best_params, paths["fig_marg"], grids=grids)
 
     all_params = {**best_params, **other_params}
