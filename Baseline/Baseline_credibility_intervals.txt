@@ -1,0 +1,11 @@
+# Baseline: 95% credibility intervals (alpha-cut of the marginal possibility at 0.05)
+# t_c = tau + 1924
+# '*' = the possibility is still above the threshold at the edge of the grid:
+#       the true bound lies beyond the grid (widen intervals[p] in constants.py)
+# param	MLE	lower	upper
+alpha	2.97879	2.55311	3.40688
+mu	0.234536	0.189377	0.278246
+sigma2	0.279194	0.252627	0.311471
+tau	137.213	109.722	199.551
+a	0.890414	0.527626	1.24856
+t_c	2061.21	2033.72	2123.55
