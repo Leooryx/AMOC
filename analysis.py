@@ -16,6 +16,7 @@ import json
 
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.colors import to_rgb
 
 from utils import *
 from likelihoods import *
@@ -233,8 +234,8 @@ def joint_possibility(theta, likelihood, max_loglik):
     return float(np.clip(np.exp(-likelihood(list(theta)) - max_loglik), 0.0, 1.0))
 
 
-def plot_monte_carlo(param_sets, n_sim, exp_name="Baseline", seed=None,
-                     alpha_min=0.02, alpha_max=0.6):
+def plot_monte_carlo(param_sets, num_sim=3, exp_name="Baseline", seed=None,
+                     alpha_min=0.1, alpha_max=0.6):
     """`param_sets`: list of [alpha, mu, sigma2, tau, a] (lists or dicts).
     Each set gets one random color (the same for all its n_sim trajectories) and
     a transparency that grows with its joint possibility under `exp_name`'s
@@ -260,15 +261,16 @@ def plot_monte_carlo(param_sets, n_sim, exp_name="Baseline", seed=None,
     for k, s in enumerate(param_sets):
         theta = [s[p] for p in params] if isinstance(s, dict) else list(s)
         poss = joint_possibility(theta, likelihood, max_loglik)
-        color = rng.random(3)
-        line_alpha = alpha_min + (alpha_max - alpha_min) * poss
+        COLORS = ["orange", "pink", "black", "black"] 
+        color = to_rgb(COLORS[k % len(COLORS)])
+        line_alpha = 0.5 #alpha_min + (alpha_max - alpha_min) * poss
  
         p_full = {**mle["other_params"], **dict(zip(params, theta))}
         p_full["t_c"] = p_full["tau"] + ORIGIN_YEAR
-        barrier = p_full["m"] - np.sqrt(-p_full["lambda0"] / p_full["a"])  # stationary-phase barrier
+        #barrier = p_full["m"] + np.sqrt(-p_full["lambda0"] / p_full["a"])  # stationary-phase barrier
  
         fpts = []
-        for j in range(n_sim):
+        for j in range(num_sim):
             # we start not far from the stable position
             X0 = p_full["m"] + np.sqrt(-p_full["lambda0"] / p_full["a"]) + np.random.normal(0, 1)
             sim_result = X_traj(p_full, X0)
@@ -278,23 +280,23 @@ def plot_monte_carlo(param_sets, n_sim, exp_name="Baseline", seed=None,
             plt.plot(time_axis, sim_result["X"], color=color, alpha=line_alpha,
                      label=f"Simulated AMOC paths, set {k + 1} (possibility = {poss:.3f})" if j == 0 else None)
  
-        median_fpt = float(np.median(fpts))
-        print(f"[{exp_name}] set {k + 1}: median First Passage (Tipping) Time: {median_fpt:.2f} years")
-        summary.append((k + 1, theta, poss, color, barrier, median_fpt))
+        mean_fpt = float(np.mean(fpts))
+        print(f"[{exp_name}] set {k + 1}: mean tipping time: {mean_fpt:.2f} years")
+        summary.append((k + 1, theta, poss, color, mean_fpt))
  
-    plt.axvline(x=t0, color="red", linestyle="--", label="Ramping Starts ($T_0$)")
+    #plt.axvline(x=t0, color="red", linestyle="--", label="Ramping starts ($T_0$)")
  
     # Barrier (tipping threshold): one black line if all sets share it, otherwise one per set in its color
-    barriers = [row[4] for row in summary]
-    if np.allclose(barriers, barriers[0]):
+    #barriers = [row[4] for row in summary]
+    """if np.allclose(barriers, barriers[0]):
         plt.axhline(y=barriers[0], color="black", linestyle=":", label="Barrier (Tipping Threshold)")
     else:
         for k, _, _, color, barrier, _ in summary:
-            plt.axhline(y=barrier, color=color, linestyle=":", label=f"Barrier (Tipping Threshold), set {k}")
+            plt.axhline(y=barrier, color=color, linestyle=":", label=f"Barrier (Tipping Threshold), set {k}")"""
  
     plt.xlabel("Time")
     plt.ylabel("$X_t$ State")
-    plt.title(f"Euler-Maruyama AMOC Trajectory Simulation ({exp_name}, {n_sim} paths per set)")
+    plt.title(f"AMOC trajectory simulation ({exp_name}, {num_sim} paths per set)")
     leg = plt.legend()
     for h in leg.legend_handles:   # legend lines fully opaque
         h.set_alpha(1)
@@ -306,11 +308,11 @@ def plot_monte_carlo(param_sets, n_sim, exp_name="Baseline", seed=None,
  
     txt_path = os.path.join(OUTPUTS_DIR, f"{exp_name}_MC_param_sets.txt")
     with open(txt_path, "w") as f:
-        f.write(f"# n_sim = {n_sim}, seed = {seed}, likelihood of {exp_name}\n")
-        f.write("# set\t" + "\t".join(params) + "\tpossibility\tbarrier\tmedian_FPT\tcolor_rgb\n")
-        for k, theta, poss, color, barrier, median_fpt in summary:
+        f.write(f"# n_sim = {num_sim}, seed = {seed}, likelihood of {exp_name}\n")
+        f.write("# set\t" + "\t".join(params) + "\tpossibility\tmedian_FPT\tcolor_rgb\n")
+        for k, theta, poss, color, median_fpt in summary:
             f.write(f"{k}\t" + "\t".join(f"{v:.6g}" for v in theta)
-                    + f"\t{poss:.6g}\t{barrier:.6g}\t{median_fpt:.2f}\t"
+                    + f"\t{poss:.6g}\t{median_fpt:.2f}\t"
                     + ",".join(f"{c:.3f}" for c in color) + "\n")
     return fig_path, txt_path
 
@@ -345,4 +347,4 @@ if __name__ == "__main__":
             mle_set,
             [3.06, 0.25, 0.55, 140.63, 0.86]
         ]
-        print("wrote", *plot_monte_carlo(PARAM_SETS, n_sim=20, exp_name=MC_EXPERIMENT, seed=0))
+        print("wrote", *plot_monte_carlo(PARAM_SETS, num_sim=3, exp_name=MC_EXPERIMENT, seed=0))

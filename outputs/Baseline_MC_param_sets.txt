@@ -1,4 +1,4 @@
-# n_sim = 20, seed = 0, likelihood of Baseline
-# set	alpha	mu	sigma2	tau	a	possibility	barrier	median_FPT	color_rgb
-1	2.97879	0.234536	0.279194	137.213	0.890414	1	-3.11086	2061.21	0.637,0.270,0.041
-2	3.06	0.25	0.55	140.63	0.86	1.32022e-144	-3.14018	2064.63	0.017,0.813,0.913
+# n_sim = 3, seed = 0, likelihood of Baseline
+# set	alpha	mu	sigma2	tau	a	possibility	median_FPT	color_rgb
+1	2.97879	0.234536	0.279194	137.213	0.890414	1	2061.21	1.000,0.647,0.000
+2	3.06	0.25	0.55	140.63	0.86	1.32022e-144	2064.63	1.000,0.753,0.796
