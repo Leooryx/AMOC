@@ -215,18 +215,57 @@ def plot_compare_possTip(exp_names=("Baseline", "Widened"), linestyles=("-", ":"
     return path
 
 
+def plot_compare_marginals(exp_names=("Baseline", "Widened"), linestyles=("-", ":"),
+                           mle_colors=("black", "grey"), text_heights=(0.4, 0.75)):
+    """Marginal possibility functions of several experiments on the same graph, in
+    the style of plot_profiles: one panel per parameter (same colors), one line
+    style per experiment (Widened dotted), MLE of each experiment as a vertical line."""
+    n_params = len(params)
+    labels = ['alpha', 'mu', 'sigma2', 'tau', 'a']
+    default_colors = ['#204878', '#3870b0', '#6098d8', '#cc4c02', '#ec7014', '#8c510a']
+    colors = default_colors[:n_params]
+ 
+    fig, axes = plt.subplots(1, n_params, figsize=(3.6 * n_params, 4), sharey=True)
+ 
+    for exp_name, ls, mle_c, h in zip(exp_names, linestyles, mle_colors, text_heights):
+        if not experiment_is_complete(exp_name):
+            print(f"[{exp_name}] files missing, not in the marginals plot.")
+            continue
+        profiles, grids = load_profiles(exp_name)
+        estimates = load_mle(exp_name)["best_params"]
+ 
+        for idx, key in enumerate(params):
+            ax = axes[idx]
+            ax.plot(grids[key], profiles[key], color=colors[idx], linestyle=ls, linewidth=2.5,
+                    label=rf'$\pi(\theta|X)$ {exp_name}')
+ 
+            x = estimates[key]
+            ax.axvline(x, color=mle_c, linestyle=':', label=f'MLE {exp_name}')
+            ax.text(x, h, f"{x:.3g}", rotation=90, ha='left', va='top', fontsize=9, color=mle_c)
+ 
+    for idx, key in enumerate(params):
+        ax = axes[idx]
+        ax.set_title(labels[idx], fontsize=14, fontweight='bold')
+        ax.set_ylim(-0.05, 1.05)
+        ax.grid(True, linestyle=':', alpha=0.5)
+ 
+        if idx == 0:
+            ax.set_ylabel('Possibility ', fontsize=12)
+            ax.legend(loc='upper right', fontsize=8)
+ 
+    plt.suptitle(f"Marginalized possibilities: {' vs '.join(exp_names)}", fontsize=10, fontweight='bold')
+    plt.tight_layout()
+ 
+    path = os.path.join(OUTPUTS_DIR, f"{'_vs_'.join(exp_names)}_marginals.png")
+    plt.savefig(path)
+    plt.close(fig)
+    return path
+
+
 # =============================================================================
 # outputs/ 2) Monte Carlo trajectories for several parameter sets
 # =============================================================================
 
-def simulate_trajectory(p):
-    """ONE trajectory for the full parameter dict `p`.
-    >>> TO ADAPT to X_traj: the keys of the returned dict are a guess. <<<
-    Must return (times, X)."""
-    from utils import X_traj
-    X0 = p["m"] + np.sqrt(-p["lambda0"] / p["a"]) + np.random.normal(0, 1)
-    sim = X_traj(p, X0)
-    return sim["time"], sim["X"]
 
 
 def joint_possibility(theta, likelihood, max_loglik):
@@ -348,3 +387,4 @@ if __name__ == "__main__":
             [3.06, 0.25, 0.55, 140.63, 0.86]
         ]
         print("wrote", *plot_monte_carlo(PARAM_SETS, num_sim=3, exp_name=MC_EXPERIMENT, seed=0))
+        print(f"wrote {plot_compare_marginals(('Baseline', 'Widened'))}")
