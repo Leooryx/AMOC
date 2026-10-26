@@ -372,7 +372,7 @@ if __name__ == "__main__":
     print(f"wrote {plot_compare_possTip(('Baseline', 'Widened'))}")
 
     # Monte Carlo: one list [alpha, mu, sigma2, tau, a] per parameter set, e.g.
-    #   PARAM_SETS = [[a1, m1, s1, t1, aa1], [a2, m2, s2, t2, aa2], [a3, m3, s3, t3, aa3]]
+    #   PARAM_SETS = [[alpha1, m1, s1, t1, a1], [alpha2, m2, s2, t2, a2], ...
     # Default example: the MLE, and the MLE with tau at each bound of its 95% interval.
     
     # careful, this MC experiments depend on the chosen liklihood!

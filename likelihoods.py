@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 
 from constants import *
+from utils import *
 
 
 # TODO: bien revérifier les maths derrière les likelihoods
@@ -155,5 +156,78 @@ def joint(pars):
     # La log-vraisemblance totale est la somme des deux phases
     joint_ll = ll_ou + ll_ns
     return -joint_ll  
+
+
+
+  
+def joint_validified(pars):
+    global statio_data, nonstatio_data
+    
+    BASELINE_MAX_LOGLIK = 5370.183291304657 
+    M = 5000
+    
+    # 1. Observed log-likelihood ratio
+    # joint(pars) returns the negative log-likelihood
+    neg_ll_obs = joint(pars)
+    log_R_obs = BASELINE_MAX_LOGLIK - (-neg_ll_obs)
+    
+    count_leq = 0
+    
+    # Save the original global data to restore it after simulations
+    orig_statio = statio_data.copy()
+    orig_nonstatio = nonstatio_data.copy()
+    n_s = len(orig_statio)
+    n_ns = len(orig_nonstatio)
+    
+    # Format parameters for your X_traj simulator
+    p_dict = {
+        "alpha": pars[0], 
+        "mu": pars[1], 
+        "sigma2": pars[2], 
+        "tau": pars[3], 
+        "a": pars[4],
+        "lambda0": -(pars[0]**2) / (4 * pars[4]),
+        "m": pars[1] - pars[0] / (2 * pars[4]),
+        "t_c": t0 + pars[3] 
+    }
+    
+    try:
+        for _ in range(M):
+            # 2. Simulate dataset using your exact function
+            # Ymax ensures it runs long enough to cover both data phases
+            sim_res = X_traj(p_dict, orig_statio[0], Ymax=n_s + n_ns + 10)
+            sim_X = sim_res["X"]
+            
+            # Safety pad in case deterministic tip broke the loop early
+            if len(sim_X) < n_s + n_ns:
+                sim_X = np.pad(sim_X, (0, (n_s + n_ns) - len(sim_X)), mode='edge')
+            
+            # Temporarily replace global data so joint() evaluates the simulation
+            statio_data = sim_X[:n_s]
+            nonstatio_data = sim_X[n_s - 1 : n_s - 1 + n_ns]
+            
+            # 3. Simulated log-likelihood ratio
+            neg_ll_sim_theta = joint(pars)
+            
+            # Compute MLE on this specific simulated dataset
+            res = minimize(joint, x0=pars, method="Nelder-Mead", bounds=b(params))
+            neg_ll_sim_mle = res.fun
+            
+            # log_R_sim = L(theta) - L(MLE)
+            log_R_sim = (-neg_ll_sim_theta) - (-neg_ll_sim_mle)
+            
+            # 4. Validification check
+            if log_R_sim <= log_R_obs:
+                count_leq += 1
+                
+    finally:
+        # Guarantee the original data is restored for the rest of your script
+        statio_data = orig_statio
+        nonstatio_data = orig_nonstatio
+        
+    pi_w = max(count_leq / M, 1e-12)
+    
+    # Return negative log-possibility to interface perfectly with your minimizers
+    return -np.log(pi_w)
 
 

@@ -10,7 +10,7 @@ import os
 from scipy.interpolate import interp1d
 
 from constants import *
-from likelihoods import *
+#from likelihoods import *
 
 
 np.random.seed(123)
