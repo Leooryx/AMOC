@@ -53,14 +53,12 @@ from fp_tipping import proba_tip_before_fp
 from likelihoods import joint
 from example import joint_flattened, joint_true
 
-"""EXPERIMENTS = {
+EXPERIMENTS = {
     "Baseline": joint,
     "Widened": joint_flattened,
     "FP_transition": joint_true,
-}"""
+}
 
-
-EXPERIMENTS = {'Validified': joint_validified}
 
 # =============================================================================
 
@@ -520,22 +518,9 @@ def run_experiment(exp_name):
     paths = experiment_paths(exp_name)
 
     # 1) MLE
-    #max_loglik_global, best_params, other_params = get_mle(exp_name, likelihood, paths["mle"])
+    max_loglik_global, best_params, other_params = get_mle(exp_name, likelihood, paths["mle"])
 
     # 2) Marginal possibility profiles
-    # for validied !!
-    max_loglik_global = 5370.183291304657
-    best_params = {
-    "alpha": 2.9787859333646143,
-    "mu": 0.23453568965076632,
-    "sigma2": 0.2791937786523765,
-    "tau": 137.21292881382715,
-    "a": 0.8904140981432349}
-    other_params = {
-    "m": -1.4381612833510231,
-    "lambda0": -2.49130310697965,
-    "t_c": 2061.212928813827
-    }
     profiles, grids = get_profiles(exp_name, max_loglik_global, best_params, paths["profiles"])    
     plot_profiles(profiles, best_params, paths["fig_marg"], grids=grids)
     print("Marginals computed")
